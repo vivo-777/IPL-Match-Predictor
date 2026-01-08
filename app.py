@@ -25,7 +25,7 @@ from constants import teams_per_year_static, model_translation, cities
 # --- CACHE ---
 @st.cache_resource
 def load_simulator():
-    with open("context_simulator.pkl", "rb") as f:
+    with open("model/context_simulator.pkl", "rb") as f:
         sim = pickle.load(f)
     return sim
 
@@ -44,12 +44,12 @@ def force_xgb_cpu_pipeline(pipe):
 
 # Load Pickle Models
 try:
-    pipe_2nd = pickle.load(open('pipe_optuna.pkl', 'rb'))
+    pipe_2nd = pickle.load(open('model/pipe_2nd_innings.pkl', 'rb'))
     force_xgb_cpu_pipeline(pipe_2nd)
 except: pipe_2nd = None
 
 try:
-    pipe_1st = pickle.load(open('pipe_1st_innings.pkl', 'rb'))
+    pipe_1st = pickle.load(open('model/pipe_1st_innings.pkl', 'rb'))
     force_xgb_cpu_pipeline(pipe_1st)
 except: pipe_1st = None
 
