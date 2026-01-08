@@ -5,9 +5,93 @@ import numpy as np
 import xgboost as xgb
 import time
 import warnings
+from sklearn.preprocessing import LabelEncoder
 import os
-from train_context_simulator import ContextAwareModel
 os.environ["XGBOOST_DISABLE_GPU"] = "1"
+class ContextAwareModel:
+    def __init__(self):
+        self.model = xgb.XGBClassifier(
+            n_estimators=300,
+            learning_rate=0.05,
+            max_depth=10,
+            tree_method="hist",
+            device="cpu",
+            n_jobs=-1,
+            random_state=42
+        )
+        self.encoders = {}
+        self.feature_cols = [
+            'venue', 'batting_team', 'bowling_team',
+            'batter', 'bowler', 'over', 'innings', 'team_wicket'
+        ]
+        self.teams_per_year_dynamic = {}
+
+    def load_and_train(self):
+        inn1 = pd.read_csv('dataset/innings_1.csv')
+        inn2 = pd.read_csv('dataset/innings_2.csv')
+        df = pd.concat([inn1, inn2])
+        df = df.loc[:, ~df.columns.duplicated()]
+
+        if 'venue' not in df.columns:
+            df['venue'] = df.get('city', 'Unknown')
+
+        df['venue'] = df['venue'].astype(str)
+
+        if 'season' in df.columns:
+            df['year'] = df['season'].astype(str).str[:4].astype(int)
+        else:
+            df['year'] = pd.to_datetime(df['date']).dt.year
+
+        df['team_wicket'] = df.get('team_wicket', 0)
+        df.dropna(subset=['batter', 'bowler', 'runs_total', 'over'], inplace=True)
+
+        for col in ['venue', 'batting_team', 'bowling_team', 'batter', 'bowler']:
+            le = LabelEncoder()
+            df[col] = le.fit_transform(df[col].astype(str))
+            self.encoders[col] = le
+
+        df['over'] = df['over'].astype(int)
+        df['innings'] = df['innings'].astype(int)
+        df['team_wicket'] = df['team_wicket'].astype(int)
+
+        y_raw = np.where(df['is_wicket'] == 1, -1, df['runs_total'])
+        self.target_encoder = LabelEncoder()
+        y = self.target_encoder.fit_transform(y_raw)
+
+        self.model.fit(df[self.feature_cols], y)
+        self.df = df
+
+        temp = df[['year', 'batting_team']]
+        temp['team_name'] = self.encoders['batting_team'].inverse_transform(temp['batting_team'])
+        for y in temp['year'].unique():
+            self.teams_per_year_dynamic[y] = sorted(
+                temp[temp['year'] == y]['team_name'].unique()
+            )
+
+    def get_squad(self, team_name, year):
+        team_le = self.encoders['batting_team']
+        if team_name not in team_le.classes_:
+            return [], None, team_name
+
+        team_id = team_le.transform([team_name])[0]
+        subset = self.df[(self.df['year'] == year) & (self.df['batting_team'] == team_id)]
+
+        if subset.empty:
+            return [], team_id, team_name
+
+        top_bats = subset.groupby('batter')['runs_total'].sum().nlargest(7).index.tolist()
+        subset_bowl = self.df[(self.df['year'] == year) & (self.df['bowling_team'] == team_id)]
+        top_bowls = subset_bowl[subset_bowl['is_wicket'] == 1] \
+            .groupby('bowler')['is_wicket'].sum().nlargest(5).index.tolist()
+
+        squad_ids = list(set(top_bats + top_bowls))[:11]
+        squad_names = self.encoders['batter'].inverse_transform(squad_ids)
+        return list(zip(squad_names, squad_ids)), team_id, team_name
+
+    def predict_ball(self, input_vec):
+        probs = self.model.predict_proba(input_vec.astype(np.float32))[0]
+        idx = np.random.choice(len(probs), p=probs)
+        return self.target_encoder.inverse_transform([idx])[0]
 
 # Warnings ignore
 warnings.filterwarnings('ignore')
