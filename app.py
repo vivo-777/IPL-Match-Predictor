@@ -140,7 +140,7 @@ except: pipe_1st = None
 
 
 # Init
-with st.spinner("⏳ Starting AI Engine (Training on CPU for stability)..."):
+with st.spinner("⏳ Starting AI Engine"):
     simulator = load_simulator()
 
 # ------------------------------------------------------------------
@@ -308,85 +308,88 @@ elif app_mode == "🔮 Win Predictor (2nd Innings)":
     wickets = col5.number_input('Wickets', min_value=0, max_value=9)
 
     if st.button('Predict'):
-        if pipe_2nd:
-            runs_left = target - score
-            balls_left = 120 - (int(overs) * 6 + int((overs % 1) * 10))
-            wickets_left = 10 - wickets
+        if batting_team != bowling_team:
+            if pipe_2nd:
+                runs_left = target - score
+                balls_left = 120 - (int(overs) * 6 + int((overs % 1) * 10))
+                wickets_left = 10 - wickets
 
-            crr = score / overs if overs > 0 else 0
-            rrr = (runs_left * 6) / balls_left if balls_left > 0 else 0
+                crr = score / overs if overs > 0 else 0
+                rrr = (runs_left * 6) / balls_left if balls_left > 0 else 0
 
-            input_df = pd.DataFrame({
-                'batting_team': [model_translation.get(batting_team, batting_team)],
-                'bowling_team': [model_translation.get(bowling_team, bowling_team)],
-                'city': [selected_city],
-                'runs_needed': [runs_left],
-                'balls_left': [balls_left],
-                'wickets_left': [wickets_left],
-                'crr': [crr],
-                'rrr': [rrr]
-            })
+                input_df = pd.DataFrame({
+                    'batting_team': [model_translation.get(batting_team, batting_team)],
+                    'bowling_team': [model_translation.get(bowling_team, bowling_team)],
+                    'city': [selected_city],
+                    'runs_needed': [runs_left],
+                    'balls_left': [balls_left],
+                    'wickets_left': [wickets_left],
+                    'crr': [crr],
+                    'rrr': [rrr]
+                })
 
-            probs = pipe_2nd.predict_proba(input_df)[0]
+                probs = pipe_2nd.predict_proba(input_df)[0]
 
-            bat_prob = probs[1] * 100
-            bowl_prob = probs[0] * 100
+                bat_prob = probs[1] * 100
+                bowl_prob = probs[0] * 100
 
-            st.markdown("### 🏏 Win Probability")
+                st.markdown("### 🏏 Win Probability")
 
-            # ---- METRICS ----
-            m1, m2 = st.columns(2)
-            m1.metric(
-                label=f"{batting_team}",
-                value=f"{bat_prob:.1f}%",
-                delta="Batting"
-            )
-            m2.metric(
-                label=f"{bowling_team}",
-                value=f"{bowl_prob:.1f}%",
-                delta="Bowling"
-            )
+                # ---- METRICS ----
+                m1, m2 = st.columns(2)
+                m1.metric(
+                    label=f"{batting_team}",
+                    value=f"{bat_prob:.1f}%",
+                    delta="Batting"
+                )
+                m2.metric(
+                    label=f"{bowling_team}",
+                    value=f"{bowl_prob:.1f}%",
+                    delta="Bowling"
+                )
 
-            st.markdown("---")
+                st.markdown("---")
 
-            # ---- PROGRESS BAR ----
-            st.markdown(
-                f"""
-                <div style="width:100%; background:#eee; border-radius:8px; overflow:hidden;">
-                    <div style="
-                        width:{bat_prob}%;
-                        background:#4CAF50;
-                        padding:8px 0;
-                        float:left;
-                        text-align:center;
-                        color:white;
-                        font-weight:bold;">
-                        {bat_prob:.1f}%
+                # ---- PROGRESS BAR ----
+                st.markdown(
+                    f"""
+                    <div style="width:100%; background:#eee; border-radius:8px; overflow:hidden;">
+                        <div style="
+                            width:{bat_prob}%;
+                            background:#4CAF50;
+                            padding:8px 0;
+                            float:left;
+                            text-align:center;
+                            color:white;
+                            font-weight:bold;">
+                            {bat_prob:.1f}%
+                        </div>
+                        <div style="
+                            width:{bowl_prob}%;
+                            background:#f44336;
+                            padding:8px 0;
+                            float:left;
+                            text-align:center;
+                            color:white;
+                            font-weight:bold;">
+                            {bowl_prob:.1f}%
+                        </div>
                     </div>
-                    <div style="
-                        width:{bowl_prob}%;
-                        background:#f44336;
-                        padding:8px 0;
-                        float:left;
-                        text-align:center;
-                        color:white;
-                        font-weight:bold;">
-                        {bowl_prob:.1f}%
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
+                    """,
+                    unsafe_allow_html=True
+                )
 
-            # ---- TEXT VERDICT ----
-            st.markdown("---")
-            if bat_prob > bowl_prob:
-                st.success(f"🏆 **{batting_team}** are more likely to win")
+                # ---- TEXT VERDICT ----
+                st.markdown("---")
+                if bat_prob > bowl_prob:
+                    st.success(f"🏆 **{batting_team}** are more likely to win")
+                else:
+                    st.success(f"🏆 **{bowling_team}** are more likely to win")
+
             else:
-                st.success(f"🏆 **{bowling_team}** are more likely to win")
-
+                st.error("Model Missing")
         else:
-            st.error("Model Missing")
+            st.error("Batting and Bowling teams cannot be same")
 
 # ==================================================================
 # MODE 3: 1ST INNINGS PREDICTOR
@@ -406,15 +409,20 @@ elif app_mode == "📊 Score Predictor (1st Innings)":
     last_five = col6.number_input('Runs Last 5 Overs', min_value=0)
     
     if st.button('Predict'):
-        if pipe_1st:
-            balls_left = 120 - (int(overs)*6 + int((overs%1)*10))
-            wickets_left = 10 - wickets
-            crr = curr_score/overs if overs > 0 else 0
-            input_df = pd.DataFrame({'batting_team':[model_translation.get(batting_team, batting_team)], 
-                                     'bowling_team':[model_translation.get(bowling_team, bowling_team)], 
-                                     'city':[selected_city], 'current_score':[curr_score], 
-                                     'balls_left':[balls_left], 'wickets_left':[wickets], 
-                                     'crr':[crr], 'runs_last_5':[last_five], "year":[selected_year]})
-            res = pipe_1st.predict(input_df)
-            st.success(f"Projected Score: {int(res[0])}")
-        else: st.error("Model Missing")
+        if batting_team == bowling_team:
+            st.error("Batting and bowling team cannot be same")
+        elif curr_score<last_five:
+            st.error("Current Score cannot be less than Score in the last 5 overs")
+        else:
+            if pipe_1st:
+                balls_left = 120 - (int(overs)*6 + int((overs%1)*10))
+                wickets_left = 10 - wickets
+                crr = curr_score/overs if overs > 0 else 0
+                input_df = pd.DataFrame({'batting_team':[model_translation.get(batting_team, batting_team)], 
+                                        'bowling_team':[model_translation.get(bowling_team, bowling_team)], 
+                                        'city':[selected_city], 'current_score':[curr_score], 
+                                        'balls_left':[balls_left], 'wickets_left':[wickets], 
+                                        'crr':[crr], 'runs_last_5':[last_five], "year":[selected_year]})
+                res = pipe_1st.predict(input_df)
+                st.success(f"Projected Score: {int(res[0])}")
+            else: st.error("Model Missing")
