@@ -133,7 +133,7 @@ try:
 except: pipe_2nd = None
 
 try:
-    pipe_1st = pickle.load(open('pipe_1st_innings.pkl', 'rb'))
+    pipe_1st = pickle.load(open('model/pipe_1st_innings.pkl', 'rb'))
     force_xgb_cpu_pipeline(pipe_1st)
 except: pipe_1st = None
 
