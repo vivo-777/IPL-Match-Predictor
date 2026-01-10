@@ -133,7 +133,7 @@ try:
 except: pipe_2nd = None
 
 try:
-    pipe_1st = pickle.load(open('model/pipe_1st_innings.pkl', 'rb'))
+    pipe_1st = pickle.load(open('pipe_1st_innings.pkl', 'rb'))
     force_xgb_cpu_pipeline(pipe_1st)
 except: pipe_1st = None
 
@@ -414,7 +414,7 @@ elif app_mode == "📊 Score Predictor (1st Innings)":
                                      'bowling_team':[model_translation.get(bowling_team, bowling_team)], 
                                      'city':[selected_city], 'current_score':[curr_score], 
                                      'balls_left':[balls_left], 'wickets_left':[wickets], 
-                                     'crr':[crr], 'last_five':[last_five]})
+                                     'crr':[crr], 'runs_last_5':[last_five], "year":[selected_year]})
             res = pipe_1st.predict(input_df)
             st.success(f"Projected Score: {int(res[0])}")
         else: st.error("Model Missing")
