@@ -5,9 +5,93 @@ import numpy as np
 import xgboost as xgb
 import time
 import warnings
+from sklearn.preprocessing import LabelEncoder
 import os
-from train_context_simulator import ContextAwareModel
 os.environ["XGBOOST_DISABLE_GPU"] = "1"
+class ContextAwareModel:
+    def __init__(self):
+        self.model = xgb.XGBClassifier(
+            n_estimators=300,
+            learning_rate=0.05,
+            max_depth=10,
+            tree_method="hist",
+            device="cpu",
+            n_jobs=-1,
+            random_state=42
+        )
+        self.encoders = {}
+        self.feature_cols = [
+            'venue', 'batting_team', 'bowling_team',
+            'batter', 'bowler', 'over', 'innings', 'team_wicket'
+        ]
+        self.teams_per_year_dynamic = {}
+
+    def load_and_train(self):
+        inn1 = pd.read_csv('dataset/innings_1.csv')
+        inn2 = pd.read_csv('dataset/innings_2.csv')
+        df = pd.concat([inn1, inn2])
+        df = df.loc[:, ~df.columns.duplicated()]
+
+        if 'venue' not in df.columns:
+            df['venue'] = df.get('city', 'Unknown')
+
+        df['venue'] = df['venue'].astype(str)
+
+        if 'season' in df.columns:
+            df['year'] = df['season'].astype(str).str[:4].astype(int)
+        else:
+            df['year'] = pd.to_datetime(df['date']).dt.year
+
+        df['team_wicket'] = df.get('team_wicket', 0)
+        df.dropna(subset=['batter', 'bowler', 'runs_total', 'over'], inplace=True)
+
+        for col in ['venue', 'batting_team', 'bowling_team', 'batter', 'bowler']:
+            le = LabelEncoder()
+            df[col] = le.fit_transform(df[col].astype(str))
+            self.encoders[col] = le
+
+        df['over'] = df['over'].astype(int)
+        df['innings'] = df['innings'].astype(int)
+        df['team_wicket'] = df['team_wicket'].astype(int)
+
+        y_raw = np.where(df['is_wicket'] == 1, -1, df['runs_total'])
+        self.target_encoder = LabelEncoder()
+        y = self.target_encoder.fit_transform(y_raw)
+
+        self.model.fit(df[self.feature_cols], y)
+        self.df = df
+
+        temp = df[['year', 'batting_team']]
+        temp['team_name'] = self.encoders['batting_team'].inverse_transform(temp['batting_team'])
+        for y in temp['year'].unique():
+            self.teams_per_year_dynamic[y] = sorted(
+                temp[temp['year'] == y]['team_name'].unique()
+            )
+
+    def get_squad(self, team_name, year):
+        team_le = self.encoders['batting_team']
+        if team_name not in team_le.classes_:
+            return [], None, team_name
+
+        team_id = team_le.transform([team_name])[0]
+        subset = self.df[(self.df['year'] == year) & (self.df['batting_team'] == team_id)]
+
+        if subset.empty:
+            return [], team_id, team_name
+
+        top_bats = subset.groupby('batter')['runs_total'].sum().nlargest(7).index.tolist()
+        subset_bowl = self.df[(self.df['year'] == year) & (self.df['bowling_team'] == team_id)]
+        top_bowls = subset_bowl[subset_bowl['is_wicket'] == 1] \
+            .groupby('bowler')['is_wicket'].sum().nlargest(5).index.tolist()
+
+        squad_ids = list(set(top_bats + top_bowls))[:11]
+        squad_names = self.encoders['batter'].inverse_transform(squad_ids)
+        return list(zip(squad_names, squad_ids)), team_id, team_name
+
+    def predict_ball(self, input_vec):
+        probs = self.model.predict_proba(input_vec.astype(np.float32))[0]
+        idx = np.random.choice(len(probs), p=probs)
+        return self.target_encoder.inverse_transform([idx])[0]
 
 # Warnings ignore
 warnings.filterwarnings('ignore')
@@ -25,7 +109,7 @@ from constants import teams_per_year_static, model_translation, cities
 # --- CACHE ---
 @st.cache_resource
 def load_simulator():
-    with open("context_simulator.pkl", "rb") as f:
+    with open("model/context_simulator.pkl", "rb") as f:
         sim = pickle.load(f)
     return sim
 
@@ -44,19 +128,19 @@ def force_xgb_cpu_pipeline(pipe):
 
 # Load Pickle Models
 try:
-    pipe_2nd = pickle.load(open('pipe_optuna.pkl', 'rb'))
+    pipe_2nd = pickle.load(open('model/pipe_2nd_innings.pkl', 'rb'))
     force_xgb_cpu_pipeline(pipe_2nd)
 except: pipe_2nd = None
 
 try:
-    pipe_1st = pickle.load(open('pipe_1st_innings.pkl', 'rb'))
+    pipe_1st = pickle.load(open('model/pipe_1st_innings.pkl', 'rb'))
     force_xgb_cpu_pipeline(pipe_1st)
 except: pipe_1st = None
 
 
 
 # Init
-with st.spinner("⏳ Starting AI Engine (Training on CPU for stability)..."):
+with st.spinner("⏳ Starting AI Engine"):
     simulator = load_simulator()
 
 # ------------------------------------------------------------------
@@ -224,85 +308,88 @@ elif app_mode == "🔮 Win Predictor (2nd Innings)":
     wickets = col5.number_input('Wickets', min_value=0, max_value=9)
 
     if st.button('Predict'):
-        if pipe_2nd:
-            runs_left = target - score
-            balls_left = 120 - (int(overs) * 6 + int((overs % 1) * 10))
-            wickets_left = 10 - wickets
+        if batting_team != bowling_team:
+            if pipe_2nd:
+                runs_left = target - score
+                balls_left = 120 - (int(overs) * 6 + int((overs % 1) * 10))
+                wickets_left = 10 - wickets
 
-            crr = score / overs if overs > 0 else 0
-            rrr = (runs_left * 6) / balls_left if balls_left > 0 else 0
+                crr = score / overs if overs > 0 else 0
+                rrr = (runs_left * 6) / balls_left if balls_left > 0 else 0
 
-            input_df = pd.DataFrame({
-                'batting_team': [model_translation.get(batting_team, batting_team)],
-                'bowling_team': [model_translation.get(bowling_team, bowling_team)],
-                'city': [selected_city],
-                'runs_needed': [runs_left],
-                'balls_left': [balls_left],
-                'wickets_left': [wickets_left],
-                'crr': [crr],
-                'rrr': [rrr]
-            })
+                input_df = pd.DataFrame({
+                    'batting_team': [model_translation.get(batting_team, batting_team)],
+                    'bowling_team': [model_translation.get(bowling_team, bowling_team)],
+                    'city': [selected_city],
+                    'runs_needed': [runs_left],
+                    'balls_left': [balls_left],
+                    'wickets_left': [wickets_left],
+                    'crr': [crr],
+                    'rrr': [rrr]
+                })
 
-            probs = pipe_2nd.predict_proba(input_df)[0]
+                probs = pipe_2nd.predict_proba(input_df)[0]
 
-            bat_prob = probs[1] * 100
-            bowl_prob = probs[0] * 100
+                bat_prob = probs[1] * 100
+                bowl_prob = probs[0] * 100
 
-            st.markdown("### 🏏 Win Probability")
+                st.markdown("### 🏏 Win Probability")
 
-            # ---- METRICS ----
-            m1, m2 = st.columns(2)
-            m1.metric(
-                label=f"{batting_team}",
-                value=f"{bat_prob:.1f}%",
-                delta="Batting"
-            )
-            m2.metric(
-                label=f"{bowling_team}",
-                value=f"{bowl_prob:.1f}%",
-                delta="Bowling"
-            )
+                # ---- METRICS ----
+                m1, m2 = st.columns(2)
+                m1.metric(
+                    label=f"{batting_team}",
+                    value=f"{bat_prob:.1f}%",
+                    delta="Batting"
+                )
+                m2.metric(
+                    label=f"{bowling_team}",
+                    value=f"{bowl_prob:.1f}%",
+                    delta="Bowling"
+                )
 
-            st.markdown("---")
+                st.markdown("---")
 
-            # ---- PROGRESS BAR ----
-            st.markdown(
-                f"""
-                <div style="width:100%; background:#eee; border-radius:8px; overflow:hidden;">
-                    <div style="
-                        width:{bat_prob}%;
-                        background:#4CAF50;
-                        padding:8px 0;
-                        float:left;
-                        text-align:center;
-                        color:white;
-                        font-weight:bold;">
-                        {bat_prob:.1f}%
+                # ---- PROGRESS BAR ----
+                st.markdown(
+                    f"""
+                    <div style="width:100%; background:#eee; border-radius:8px; overflow:hidden;">
+                        <div style="
+                            width:{bat_prob}%;
+                            background:#4CAF50;
+                            padding:8px 0;
+                            float:left;
+                            text-align:center;
+                            color:white;
+                            font-weight:bold;">
+                            {bat_prob:.1f}%
+                        </div>
+                        <div style="
+                            width:{bowl_prob}%;
+                            background:#f44336;
+                            padding:8px 0;
+                            float:left;
+                            text-align:center;
+                            color:white;
+                            font-weight:bold;">
+                            {bowl_prob:.1f}%
+                        </div>
                     </div>
-                    <div style="
-                        width:{bowl_prob}%;
-                        background:#f44336;
-                        padding:8px 0;
-                        float:left;
-                        text-align:center;
-                        color:white;
-                        font-weight:bold;">
-                        {bowl_prob:.1f}%
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
+                    """,
+                    unsafe_allow_html=True
+                )
 
-            # ---- TEXT VERDICT ----
-            st.markdown("---")
-            if bat_prob > bowl_prob:
-                st.success(f"🏆 **{batting_team}** are more likely to win")
+                # ---- TEXT VERDICT ----
+                st.markdown("---")
+                if bat_prob > bowl_prob:
+                    st.success(f"🏆 **{batting_team}** are more likely to win")
+                else:
+                    st.success(f"🏆 **{bowling_team}** are more likely to win")
+
             else:
-                st.success(f"🏆 **{bowling_team}** are more likely to win")
-
+                st.error("Model Missing")
         else:
-            st.error("Model Missing")
+            st.error("Batting and Bowling teams cannot be same")
 
 # ==================================================================
 # MODE 3: 1ST INNINGS PREDICTOR
@@ -322,15 +409,20 @@ elif app_mode == "📊 Score Predictor (1st Innings)":
     last_five = col6.number_input('Runs Last 5 Overs', min_value=0)
     
     if st.button('Predict'):
-        if pipe_1st:
-            balls_left = 120 - (int(overs)*6 + int((overs%1)*10))
-            wickets_left = 10 - wickets
-            crr = curr_score/overs if overs > 0 else 0
-            input_df = pd.DataFrame({'batting_team':[model_translation.get(batting_team, batting_team)], 
-                                     'bowling_team':[model_translation.get(bowling_team, bowling_team)], 
-                                     'city':[selected_city], 'current_score':[curr_score], 
-                                     'balls_left':[balls_left], 'wickets_left':[wickets], 
-                                     'crr':[crr], 'last_five':[last_five]})
-            res = pipe_1st.predict(input_df)
-            st.success(f"Projected Score: {int(res[0])}")
-        else: st.error("Model Missing")
+        if batting_team == bowling_team:
+            st.error("Batting and bowling team cannot be same")
+        elif curr_score<last_five:
+            st.error("Current Score cannot be less than Score in the last 5 overs")
+        else:
+            if pipe_1st:
+                balls_left = 120 - (int(overs)*6 + int((overs%1)*10))
+                wickets_left = 10 - wickets
+                crr = curr_score/overs if overs > 0 else 0
+                input_df = pd.DataFrame({'batting_team':[model_translation.get(batting_team, batting_team)], 
+                                        'bowling_team':[model_translation.get(bowling_team, bowling_team)], 
+                                        'city':[selected_city], 'current_score':[curr_score], 
+                                        'balls_left':[balls_left], 'wickets_left':[wickets], 
+                                        'crr':[crr], 'runs_last_5':[last_five], "year":[selected_year]})
+                res = pipe_1st.predict(input_df)
+                st.success(f"Projected Score: {int(res[0])}")
+            else: st.error("Model Missing")
