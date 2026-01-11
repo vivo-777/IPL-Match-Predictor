@@ -34,7 +34,7 @@ Check out the app here: https://ipl-match-predictor-z.streamlit.app/
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: [Streamlit]
+- **Frontend**: Streamlit
 - **Language**: Python
 - **Data Analysis**: Pandas, NumPy, Matplotlib, Seaborn
 - **Machine Learning**: Scikit-Learn 
