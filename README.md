@@ -16,7 +16,7 @@ An interactive web application built with **Python**, **Streamlit**, and **Machi
 - **1st Innings Score Predictor**: Forecast the final total based on current score, wickets lost, and run rate in the last 5 overs.
 - **Win Predictor (2nd Innings)**: Estimate the winning probability for both teams during a chase.
 - **Fantasy Match Simulation**: Simulate custom match scenarios between any two IPL teams.
-- **Dynamic Inputs**: Select season (including 2025!), teams, venue, and live match stats.
+- **Dynamic Inputs**: Select season, teams, venue, and live match stats.
 - **Responsive UI**: A clean, dark-themed navigation sidebar and intuitive input fields.
 
 ---
