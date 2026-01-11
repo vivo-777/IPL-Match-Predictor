@@ -421,7 +421,7 @@ elif app_mode == "📊 Score Predictor (1st Innings)":
                 input_df = pd.DataFrame({'batting_team':[model_translation.get(batting_team, batting_team)], 
                                         'bowling_team':[model_translation.get(bowling_team, bowling_team)], 
                                         'city':[selected_city], 'current_score':[curr_score], 
-                                        'balls_left':[balls_left], 'wickets_left':[wickets], 
+                                        'balls_left':[balls_left], 'wickets_left':[wickets_left], 
                                         'crr':[crr], 'runs_last_5':[last_five], "year":[selected_year]})
                 res = pipe_1st.predict(input_df)
                 st.success(f"Projected Score: {int(res[0])}")
