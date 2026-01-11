@@ -1,6 +1,3 @@
-🏏 IPL Match Predictor
-A machine learning-powered web application that provides real-time insights into IPL matches. This project features two primary predictive engines: a 1st Innings Score Predictor and a 2nd Innings Win Probability Calculator.
-
 🚀 Live Demo
 Check out the app here: https://ipl-match-predictor-z.streamlit.app/
 
@@ -25,9 +22,11 @@ An interactive web application built with **Python**, **Streamlit**, and **Machi
 ---
 
 ## 📸 Demo
+<img width="1469" height="719" alt="image" src="https://github.com/user-attachments/assets/06642fd8-d16a-4e5a-bb01-eecfa031f52a" />
 
-![Project Screenshot](image_08482a.png)
-*A snapshot of the 1st Innings Score Predictor interface.*
+<img width="1474" height="788" alt="image" src="https://github.com/user-attachments/assets/8d218ebc-2ad0-4e71-889a-bf281dbe151d" />
+
+*A snapshot of the 1st Innings Score Predictor and 2nd Innings winning probablity interface.*
 
 ---
 
