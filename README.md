@@ -1,6 +1,3 @@
-🚀 Live Demo
-Check out the app here: https://ipl-match-predictor-z.streamlit.app/
-
 # 🏏 IPL Match Predictor
 
 ![Python](https://img.shields.io/badge/Python-3.x-blue.svg)
@@ -18,6 +15,11 @@ An interactive web application built with **Python**, **Streamlit**, and **Machi
 - **Fantasy Match Simulation**: Simulate custom match scenarios between any two IPL teams.
 - **Dynamic Inputs**: Select season, teams, venue, and live match stats.
 - **Responsive UI**: A clean, dark-themed navigation sidebar and intuitive input fields.
+
+---
+
+##🚀 Live Demo
+Check out the app here: https://ipl-match-predictor-z.streamlit.app/
 
 ---
 
