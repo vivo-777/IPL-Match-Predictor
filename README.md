@@ -1,6 +1,6 @@
 # 🏏 IPL Match Predictor
 
-![Python](https://img.shields.io/badge/Python-3.x-blue.svg)
+![Python](https://img.shields.io/badge/Python-3.11-blue.svg)
 ![Streamlit](https://img.shields.io/badge/Framework-Streamlit-red.svg)
 ![Machine Learning](https://img.shields.io/badge/Model-Machine%20Learning-green.svg)
 
