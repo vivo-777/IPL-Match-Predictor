@@ -18,7 +18,7 @@ An interactive web application built with **Python**, **Streamlit**, and **Machi
 
 ---
 
-##🚀 Live Demo
+## 🚀 Live Demo
 Check out the app here: https://ipl-match-predictor-z.streamlit.app/
 
 ---
