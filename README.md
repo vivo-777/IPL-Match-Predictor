@@ -32,18 +32,12 @@ An interactive web application built with **Python**, **Streamlit**, and **Machi
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: [Streamlit](https://streamlit.io/) (for the interactive web dashboard)
+- **Frontend**: [Streamlit]
 - **Language**: Python
-- **Data Analysis**: Pandas, NumPy
-- **Machine Learning**: Scikit-Learn (Algorithms like Random Forest, Logistic Regression, or XGBoost)
-- **Deployment**: Streamlit Cloud / Heroku
+- **Data Analysis**: Pandas, NumPy, Matplotlib, Seaborn
+- **Machine Learning**: Scikit-Learn 
+- **Deployment**: Streamlit Cloud
 
 ---
 
-## 🚀 Getting Started
 
-### Prerequisites
-Make sure you have Python installed on your system. You can then install the required dependencies:
-
-```bash
-pip install -r requirements.txt
